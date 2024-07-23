@@ -29,6 +29,7 @@ __all__ = [
     "create_mask",
     "or_masks",
     "and_masks",
+    "noop_mask",
 ]
 
 _score_mod_signature = Callable[[Tensor, Tensor, Tensor, Tensor, Tensor], Tensor]
@@ -122,6 +123,7 @@ def noop_mask(
     token_q: Tensor,
     token_kv: Tensor,
 ) -> Tensor:
+    """Returns a noop mask_mod"""
     return batch.new_ones(size=(), dtype=torch.bool, device=batch.device)
 
 
