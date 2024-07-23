@@ -74,9 +74,10 @@ def build_triton(
     with TemporaryDirectory() as tmpdir:
         triton_basedir = Path(tmpdir) / "triton"
         triton_pythondir = triton_basedir / "python"
-        triton_repo = "https://github.com/openai/triton"
+        triton_repo = "https://github.com/nmacchioni/triton"
         if device == "rocm":
             triton_pkg_name = "pytorch-triton-rocm"
+            triton_repo = "https://github.com/openai/triton"
         elif device == "xpu":
             triton_pkg_name = "pytorch-triton-xpu"
             triton_repo = "https://github.com/intel/intel-xpu-backend-for-triton"
@@ -189,9 +190,9 @@ def main() -> None:
 
     build_triton(
         device=args.device,
-        commit_hash=args.commit_hash
-        if args.commit_hash
-        else read_triton_pin(args.device),
+        commit_hash=(
+            args.commit_hash if args.commit_hash else read_triton_pin(args.device)
+        ),
         version=args.triton_version,
         build_conda=args.build_conda,
         py_version=args.py_version,

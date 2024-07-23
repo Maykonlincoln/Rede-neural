@@ -37,8 +37,9 @@ from ...utils._sympy.value_ranges import ValueRanges
 from .. import config, ir
 from ..codecache import code_hash, get_path, PyCodeCache
 from ..metrics import is_metric_table_enabled, log_kernel_metadata
+from ..runtime.benchmarking import benchmarker
 from ..runtime.hints import ReductionHint, TRITON_MAX_BLOCK
-from ..runtime.runtime_utils import do_bench_gpu, get_max_y_grid, next_power_of_2
+from ..runtime.runtime_utils import get_max_y_grid, next_power_of_2
 from ..utils import (
     cache_on_self,
     get_bounds_index_expr,
@@ -268,9 +269,11 @@ class BlockPtrOptions:
                 self.replace_roffset(offset, sympy.Integer(0)) for offset in offsets
             ]
         args = [
-            f"{name} + ({f(self.constant_offset)})"
-            if self.constant_offset != 0
-            else name,
+            (
+                f"{name} + ({f(self.constant_offset)})"
+                if self.constant_offset != 0
+                else name
+            ),
             f"shape={f(self.shape)}",
             f"strides={f(self.strides)}",
             f"block_shape={f(self.block_shape)}",
@@ -2458,9 +2461,7 @@ class TritonKernel(SIMDKernel):
             result.writeline("")
 
             result.writeline("args = get_args()")
-            result.writeline(
-                "ms = do_bench(lambda: call(args), rep=40, fast_flush=True)"
-            )
+            result.writeline("ms = do_bench(lambda: call(args))")
             result.writeline(f"num_gb = {num_gb}")
             result.writeline("gb_per_s = num_gb / (ms / 1e3)")
             result.writeline(
@@ -2515,15 +2516,15 @@ class TritonKernel(SIMDKernel):
             inductor_meta["profile_bandwidth_regex"] = config.profile_bandwidth_regex
             inductor_meta["profile_bandwidth_output"] = config.profile_bandwidth_output
         if config.coordinate_descent_tuning:
-            inductor_meta[
-                "coordinate_descent_tuning"
-            ] = config.coordinate_descent_tuning
-            inductor_meta[
-                "coordinate_descent_search_radius"
-            ] = config.coordinate_descent_search_radius
-            inductor_meta[
-                "coordinate_descent_check_all_directions"
-            ] = config.coordinate_descent_check_all_directions
+            inductor_meta["coordinate_descent_tuning"] = (
+                config.coordinate_descent_tuning
+            )
+            inductor_meta["coordinate_descent_search_radius"] = (
+                config.coordinate_descent_search_radius
+            )
+            inductor_meta["coordinate_descent_check_all_directions"] = (
+                config.coordinate_descent_check_all_directions
+            )
         return inductor_meta
 
     def codegen_kernel(self, name=None):
@@ -3060,13 +3061,17 @@ class TritonScheduling(SIMDScheduling):
         else:
             # We have to clone the inplace updated arguments to avoid earlier calls
             # generating out of range indices for later calls.
-            ms = do_bench_gpu(lambda: call(wrapped_jit_function.clone_args(*args)[0]))
+            ms = benchmarker.lazy_benchmark_gpu(
+                lambda: call(wrapped_jit_function.clone_args(*args)[0])
+            )
 
             # overhead of cloning args gives bias for fusing the kernel
             # in the case of mutating/in-placeable second fusion
             # TODO - would be better as a hook in triton do_bench that reset
             # the input values between benchmarking
-            ms = ms - do_bench_gpu(lambda: wrapped_jit_function.clone_args(*args))
+            ms = ms - benchmarker.lazy_benchmark_gpu(
+                lambda: wrapped_jit_function.clone_args(*args)
+            )
 
         log.debug(
             "The fused kernel for %s took %.3f ms to run",

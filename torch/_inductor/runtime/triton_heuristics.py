@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import torch
 
+from .benchmarking import benchmarker
 from .coordinate_descent_tuner import CoordescTuner
 from .hints import (
     _NUM_THREADS_PER_WARP,
@@ -33,7 +34,6 @@ from .runtime_utils import (
     ceildiv,
     conditional_product,
     create_bandwidth_info_str,
-    do_bench_gpu,
     dynamo_timed,
     get_first_attr,
     get_max_y_grid,
@@ -457,9 +457,11 @@ class CachingAutotuner(KernelInterface):
             "bin": binary,
             "launch_enter_hook": CompiledKernel.launch_enter_hook,
             "launch_exit_hook": CompiledKernel.launch_exit_hook,
-            "metadata": binary.packed_metadata
-            if hasattr(binary, "packed_metadata")
-            else binary.metadata,
+            "metadata": (
+                binary.packed_metadata
+                if hasattr(binary, "packed_metadata")
+                else binary.metadata
+            ),
             "shared": binary_shared,
         }
 
@@ -664,7 +666,9 @@ class CachingAutotuner(KernelInterface):
                 stream=stream,
             )
 
-        return do_bench_gpu(kernel_call, rep=40, fast_flush=True)
+        return benchmarker.lazy_benchmark_gpu(
+            kernel_call, ranking_key=f"bench [{hash(self)}]"
+        )
 
     def clone_args(self, *args, **kwargs) -> Tuple[List[Any], Dict[str, Any]]:
         from ..compile_fx import clone_preserve_strides
@@ -696,6 +700,7 @@ class CachingAutotuner(KernelInterface):
             launcher: self.bench(launcher, *args, **kwargs)
             for launcher in self.launchers
         }
+        timings = {launcher: float(timing) for launcher, timing in timings.items()}
 
         for k, v in timings.items():
             self.coordesc_tuner.cache_benchmark_result(k.config, v)
@@ -732,21 +737,27 @@ class CachingAutotuner(KernelInterface):
         key = self.inductor_meta.get("kernel_name", None)  # unique kernel name
         assert key is not None, "kernel_name can not be None"
         params = {
-            "mangled_name": launcher.bin.metadata.name
-            if hasattr(launcher.bin.metadata, "name")
-            else launcher.bin.metadata["name"],
+            "mangled_name": (
+                launcher.bin.metadata.name
+                if hasattr(launcher.bin.metadata, "name")
+                else launcher.bin.metadata["name"]
+            ),
             "grid_x": grid_x,
             "grid_y": grid_y,
             "grid_z": grid_z,
             "x_block": launcher.config.kwargs.get("XBLOCK", 1),
             "y_block": launcher.config.kwargs.get("YBLOCK", None),
             "z_block": launcher.config.kwargs.get("ZBLOCK", None),
-            "num_warps": launcher.bin.num_warps
-            if hasattr(launcher.bin, "num_warps")
-            else launcher.bin.metadata.num_warps,
-            "shared_mem": launcher.bin.shared
-            if hasattr(launcher.bin, "shared")
-            else launcher.bin.metadata.shared,
+            "num_warps": (
+                launcher.bin.num_warps
+                if hasattr(launcher.bin, "num_warps")
+                else launcher.bin.metadata.num_warps
+            ),
+            "shared_mem": (
+                launcher.bin.shared
+                if hasattr(launcher.bin, "shared")
+                else launcher.bin.metadata.shared
+            ),
             "stream": stream,
             # User defined triton kernels will have arbitrary kwarg names
             "meta": launcher.config.kwargs,
@@ -784,7 +795,7 @@ class CachingAutotuner(KernelInterface):
                 _, launcher = self._precompile_config(config, False)
             config2launcher[config] = launcher
 
-            out = self.bench(launcher, *args, **kwargs)
+            out = float(self.bench(launcher, *args, **kwargs))
             log.debug(
                 "COORDESC: %s: %f, nreg %d, nspill %d, #shared-mem %d",
                 launcher.config,
@@ -952,7 +963,7 @@ class DebugAutotuner(CachingAutotuner):
         (launcher,) = self.launchers
 
         if self.cached is None:
-            ms = self.bench(launcher, *args, grid=grid)
+            ms = float(self.bench(launcher, *args, grid=grid))
             num_in_out_ptrs = len(
                 [
                     arg_name
