@@ -1453,7 +1453,7 @@ def forward(self, child, const_unused):
         class Foo(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.register_buffer("buffer", torch.ones(6, 4))
+                self.buffer = torch.nn.Buffer(torch.ones(6, 4))
 
             def forward(self, x):
                 def true_fn(x):
@@ -1489,7 +1489,7 @@ def forward(self, child, const_unused):
         class Foo(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.register_buffer("buffer", torch.ones(6, 4))
+                self.buffer = torch.nn.Buffer(torch.ones(6, 4))
 
             def forward(self, x, y):
                 def true_fn(x):
@@ -1714,7 +1714,7 @@ def forward(self):
         class Module(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.register_buffer("w", torch.ones(6, 4))
+                self.w = torch.nn.Buffer(torch.ones(6, 4))
 
             def forward(self, xs):
                 def body(x):
@@ -1744,7 +1744,7 @@ def forward(self):
         class Module(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.register_buffer("w", torch.ones(6, 4))
+                self.w = torch.nn.Buffer(torch.ones(6, 4))
 
             def forward(self, xs):
                 def body(x):
