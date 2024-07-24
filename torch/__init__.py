@@ -1067,7 +1067,7 @@ def set_default_device(
         :func:`torch.from_numpy` and :func:`torch.frombuffer`
 
     Args:
-        device (device or string): the device to set as default
+        device (device or string or int): the device to set as default
 
     Example::
 
@@ -1082,6 +1082,9 @@ def set_default_device(
         >>> torch.get_default_device()
         device(type='cuda', index=1)
         >>> torch.set_default_device('cuda:1')
+        >>> torch.get_default_device()
+        device(type='cuda', index=1)
+        >>> torch.set_default_device(1)  # legacy
         >>> torch.get_default_device()
         device(type='cuda', index=1)
 
