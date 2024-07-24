@@ -248,7 +248,7 @@ def trace_cond(proxy_mode, func_overload, pred, true_fn, false_fn, operands):
 def cond_op_dense(pred, true_fn, false_fn, operands):
     mode = _get_current_dispatch_mode()
     assert mode is None, "Mode should never be enabled for CPU/CUDA key"
-    if not torch.cuda.is_current_stream_capturing():
+    if not torch.cuda.is_available() or not torch.cuda.is_current_stream_capturing():
         if pred:
             return true_fn(*operands)
         else:

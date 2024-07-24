@@ -158,7 +158,7 @@ def while_loop_dense(cond_fn, body_fn, carried_inputs, additional_inputs):
             f"carried_inputs must be a tuple but got {type(carried_inputs)}"
         )
 
-    if not torch.cuda.is_current_stream_capturing():
+    if not torch.cuda.is_available() or not torch.cuda.is_current_stream_capturing():
         while pred := cond_fn(*carried_vals, *additional_inputs):
             if not _is_boolean_scalar_tensor(pred):
                 raise RuntimeError(
