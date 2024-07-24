@@ -356,6 +356,21 @@ TCPStore::TCPStore(std::string host, const TCPStoreOptions& opts)
     addr_.port = opts.port;
   }
 
+  if (opts.connectAsync) {
+    connectFuture_ =
+        std::async(std::launch::async, [this, opts] { connect(opts); });
+  } else {
+    connect(opts);
+  }
+
+  if (opts.waitWorkers) {
+    TORCH_INTERNAL_ASSERT(
+        !opts.connectAsync, "connectAsync is not supported with waitWorkers");
+    waitForWorkers();
+  }
+}
+
+void TCPStore::connect(const TCPStoreOptions& opts) {
   // Try connecting several times -- if the server listen backlog is full it may
   // fail on the first send in validate.
   auto deadline = std::chrono::steady_clock::now() + opts.timeout;
@@ -403,9 +418,14 @@ TCPStore::TCPStore(std::string host, const TCPStoreOptions& opts)
       retry += 1;
     }
   } while (true);
+}
 
-  if (opts.waitWorkers) {
-    waitForWorkers();
+void TCPStore::waitConnected() {
+  // TODO: this is a good spot to check if connection is down and reconnect if
+  // necessary.
+  C10D_DEBUG("waiting");
+  if (connectFuture_.valid()) {
+    connectFuture_.get();
   }
 }
 
@@ -482,8 +502,11 @@ void TCPStore::_splitSet(
 }
 
 void TCPStore::set(const std::string& key, const std::vector<uint8_t>& data) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["set"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   detail::SendBuffer buffer(*client_, detail::QueryType::SET);
   buffer.appendString(keyPrefix_ + key);
   buffer.appendBytes(data);
@@ -494,8 +517,11 @@ std::vector<uint8_t> TCPStore::compareSet(
     const std::string& key,
     const std::vector<uint8_t>& expectedValue,
     const std::vector<uint8_t>& desiredValue) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["compareSet"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   detail::SendBuffer buffer(*client_, detail::QueryType::COMPARE_SET);
   buffer.appendString(keyPrefix_ + key);
   buffer.appendBytes(expectedValue);
@@ -506,8 +532,11 @@ std::vector<uint8_t> TCPStore::compareSet(
 }
 
 std::vector<uint8_t> TCPStore::get(const std::string& key) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["get"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   return doGet(keyPrefix_ + key);
 }
 
@@ -521,14 +550,20 @@ std::vector<uint8_t> TCPStore::doGet(const std::string& key) {
 }
 
 int64_t TCPStore::add(const std::string& key, int64_t value) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["add"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   return incrementValueBy(keyPrefix_ + key, value);
 }
 
 bool TCPStore::deleteKey(const std::string& key) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["deleteKey"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   detail::SendBuffer buffer(*client_, detail::QueryType::DELETE_KEY);
   buffer.appendString(keyPrefix_ + key);
   buffer.flush();
@@ -547,7 +582,10 @@ int64_t TCPStore::incrementValueBy(const std::string& key, int64_t delta) {
 }
 
 int64_t TCPStore::getNumKeys() {
+  waitConnected();
+
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   detail::SendBuffer buffer(*client_, detail::QueryType::GETNUMKEYS);
   buffer.flush();
 
@@ -555,8 +593,11 @@ int64_t TCPStore::getNumKeys() {
 }
 
 bool TCPStore::check(const std::vector<std::string>& keys) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["check"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   detail::SendBuffer buffer(*client_, detail::QueryType::CHECK);
   buffer.appendValue(keys.size());
 
@@ -582,8 +623,11 @@ void TCPStore::wait(const std::vector<std::string>& keys) {
 void TCPStore::wait(
     const std::vector<std::string>& keys,
     const std::chrono::milliseconds& timeout) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["wait"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   std::vector<std::string> prefixedKeys{};
   prefixedKeys.reserve(keys.size());
   for (const std::string& key : keys) {
@@ -638,8 +682,11 @@ void TCPStore::doWait(
 void TCPStore::append(
     const std::string& key,
     const std::vector<uint8_t>& data) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["append"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   detail::SendBuffer buffer(*client_, detail::QueryType::APPEND);
   buffer.appendString(keyPrefix_ + key);
   buffer.appendBytes(data);
@@ -648,8 +695,11 @@ void TCPStore::append(
 
 std::vector<std::vector<uint8_t>> TCPStore::multiGet(
     const std::vector<std::string>& keys) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["multiGet"]);
   const std::lock_guard<std::mutex> lock(activeOpLock_);
+
   std::vector<std::string> prefixedKeys;
   prefixedKeys.reserve(keys.size());
   for (const std::string& key : keys) {
@@ -675,6 +725,8 @@ std::vector<std::vector<uint8_t>> TCPStore::multiGet(
 void TCPStore::multiSet(
     const std::vector<std::string>& keys,
     const std::vector<std::vector<uint8_t>>& values) {
+  waitConnected();
+
   detail::timing_guard tguard(clientCounters_["multiSet"]);
   TORCH_CHECK(
       keys.size() == values.size(),
