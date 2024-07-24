@@ -83,6 +83,7 @@ from torch._inductor.cudagraph_utils import (
     FunctionID,
     log_cudagraph_skip_and_bump_counter,
     log_data_ptr_mismatch,
+    maybe_warning_due_to_dynamic_shape,
     WrappedFunction,
 )
 from torch.multiprocessing.reductions import StorageWeakRef
@@ -364,6 +365,8 @@ def cudagraphify_impl(model, inputs, static_input_idxs, *args, **kwargs):
             log.info("recording cudagraph tree for graph without symints")
         else:
             log.info("recording cudagraph tree for symint key %s", int_key)
+
+        maybe_warning_due_to_dynamic_shape(fn_cache, int_key)
 
         # first get indices we need to check to align, then update our static inputs,
         # and finally copy
