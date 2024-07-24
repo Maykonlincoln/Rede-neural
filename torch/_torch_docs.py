@@ -4102,6 +4102,22 @@ Example::
 )
 
 add_docstr(
+    torch.e,
+    r"""
+e -> float
+
+Returns a constant floating-point value approximately equal to 2.718281828459045 .
+Alias for math.e
+
+Example::
+
+    >>> x = torch.e
+    e
+
+""",
+)
+
+add_docstr(
     torch.eq,
     r"""
 eq(input, other, *, out=None) -> Tensor
@@ -5378,6 +5394,22 @@ Example::
 """.format(
         **common_args
     ),
+)
+
+add_docstr(
+    torch.inf,
+    r"""
+inf -> float
+
+Returns a floating point value which indicates a positive infinity.
+Alias for math.inf
+
+Example::
+
+    >>> x = torch.inf
+    inf
+
+""",
 )
 
 add_docstr(
@@ -8090,6 +8122,22 @@ Examples::
 )
 
 add_docstr(
+    torch.nan,
+    r"""
+nan -> float
+
+Returns a constant floating-point nan (Not a Number) value. 
+Alias for math.nan
+
+Example::
+
+    >>> x = torch.nan
+    nan
+
+""",
+)
+
+add_docstr(
     torch.narrow,
     r"""
 narrow(input, dim, start, length) -> Tensor
@@ -8662,6 +8710,22 @@ Example:
 """.format(
         **common_args
     ),
+)
+
+add_docstr(
+    torch.pi,
+    r"""
+pi -> float
+
+Returns a constant floating-point value approximately equal to 3.141592653589793 .
+Alias for math.pi
+
+Example::
+
+    >>> x = torch.pi
+    pi
+
+""",
 )
 
 add_docstr(
