@@ -49,7 +49,10 @@ def _check_compile_cudagraph(test_case, fn, args):
 
     # test cudagraphs backend
     compiled_fn = torch.compile(fn, backend="cudagraphs")
-    test_case.assertEqual(eager_res, compiled_fn(*args))
+    for _ in range(3):
+        torch.compiler.cudagraph_mark_step_begin()
+        cudagraph_bnd_res = compiled_fn(*args)
+    test_case.assertEqual(eager_res, cudagraph_bnd_res)
 
 
 # TODO: pull these helpers from AOTAutograd later
@@ -2797,7 +2800,7 @@ class DynamicCondModel(torch.nn.Module):
             return self.fc1_2(x)
         
         # use PyTorch control flow API
-        pred = torch.tensor(x.sum() > 0, device="cuda")
+        pred = x.sum() > 0
         x = cond(pred, true_fn, false_fn, [x])
         
         x = self.relu(x)
