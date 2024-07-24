@@ -220,6 +220,9 @@ class UnknownVariable(VariableTracker):
     It could be anything!
     """
 
+    def next_variable(self, tx):
+        raise StopIteration("abc")
+
 
 class DelayGraphBreakVariable(UnknownVariable):
     """
