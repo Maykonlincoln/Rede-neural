@@ -538,9 +538,9 @@ void ProcessGroupNCCL::WorkNCCL::checkAndSetException() {
   std::unique_lock<std::mutex> lock(mutex_);
   exception_ = exception_ptr;
   if (exception_) {
-    LOG(INFO) << logPrefix()
-              << "found async exception when checking for NCCL errors: "
-              << getExceptionMsgFromExceptionPtr(exception_);
+    LOG(ERROR) << logPrefix()
+               << "found async exception when checking for NCCL errors: "
+               << getExceptionMsgFromExceptionPtr(exception_);
   }
 }
 
@@ -2122,7 +2122,6 @@ std::shared_ptr<NCCLComm> ProcessGroupNCCL::getNCCLComm(
   gpuGuard.set_index(deviceIndex);
 
 #ifdef NCCL_HAS_COMM_SPLIT
-  options_->config.splitShare = 1;
   if (options_->split_from) {
     TORCH_CHECK(
         options_->split_color != 0,
