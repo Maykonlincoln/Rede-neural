@@ -1,4 +1,5 @@
 # mypy: allow-untyped-defs
+import builtins
 import logging
 import operator
 import warnings
@@ -102,6 +103,8 @@ def get_dtype_as_int(tensor):
 # of TS2FXGraphConverter with name convert_<namespace>_<opname>().
 # Please check __init__ for method population implementations.
 kind_to_standard_operators = {
+    "prim::max": builtins.max,
+    "prim::min": builtins.min,
     "prim::TupleIndex": operator.getitem,
     "aten::__is__": operator.is_,
     "aten::__isnot__": operator.is_not,
@@ -764,6 +767,11 @@ class TS2FXGraphConverter:
         if node.outputsSize() == 1:
             output_name = node.output().debugName()
             self.name_to_node[output_name] = cond_node
+        elif node.outputsSize() > 1:
+            for i, output in enumerate(node.outputs()):
+                output_name = output.debugName()
+                getitem = self.fx_graph.call_function(operator.getitem, (cond_node, i))
+                self.name_to_node[output_name] = getitem
 
     def convert_aten_Bool(self, node: torch._C.Node):
         self._convert_as_noop(node)
@@ -1006,7 +1014,10 @@ DEBUG: (TORCH_LOGS="+export" <cmd>), additionally
             self.name_to_non_tensor_attributes,
         )
         gm = graph_converter.convert()
-        log.info("Converted graph, before retracing:\n\n%s\n", gm.print_readable(print_output=False))
+        log.info(
+            "Converted graph, before retracing:\n\n%s\n",
+            gm.print_readable(print_output=False),
+        )
         ep = self.retrace_as_exported_program(
             gm, graph_converter.name_to_tensor_constants
         )
