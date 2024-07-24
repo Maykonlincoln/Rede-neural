@@ -2334,6 +2334,7 @@ def _check_for_subclass_arg(x: object) -> bool:
         and isinstance(x, Tensor)
         and type(x) is not Tensor
         and type(x) is not torch.nn.Parameter
+        and type(x) is not torch.nn.Buffer
     )
 
 

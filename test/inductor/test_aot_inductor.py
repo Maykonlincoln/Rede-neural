@@ -1353,7 +1353,7 @@ class AOTInductorTestsTemplate:
         class Model(torch.nn.Module):
             def __init__(self, device):
                 super().__init__()
-                self.register_buffer("foo", torch.randn(4, 4, device=device))
+                self.foo = torch.nn.Buffer(torch.randn(4, 4, device=device))
 
             def forward(self, x):
                 self.foo.add_(1)
@@ -1389,8 +1389,8 @@ class AOTInductorTestsTemplate:
         class Model(torch.nn.Module):
             def __init__(self, device):
                 super().__init__()
-                self.register_buffer("foo", torch.arange(10, device=device))
-                self.register_buffer("bar", torch.arange(10, device=device))
+                self.foo = torch.nn.Buffer(torch.arange(10, device=device))
+                self.bar = torch.nn.Buffer(torch.arange(10, device=device))
 
             def forward(self, x):
                 self.bar.mul_(2)
@@ -1412,8 +1412,8 @@ class AOTInductorTestsTemplate:
             ):
                 super().__init__()
                 cache_shape = (max_batch_size, n_heads, max_seq_length, head_dim)
-                self.register_buffer("k_cache", torch.zeros(cache_shape, dtype=dtype))
-                self.register_buffer("v_cache", torch.zeros(cache_shape, dtype=dtype))
+                self.k_cache = torch.nn.Buffer(torch.zeros(cache_shape, dtype=dtype))
+                self.v_cache = torch.nn.Buffer(torch.zeros(cache_shape, dtype=dtype))
 
             def update(self, input_pos, k_val, v_val):
                 # input_pos: [S], k_val: [B, H, S, D]
@@ -2353,7 +2353,7 @@ class AOTInductorTestsTemplate:
             def __init__(self):
                 super().__init__()
                 self.register_parameter("0", torch.nn.Parameter(torch.randn(3, 4)))
-                self.register_buffer("test_buf", torch.randn(3, 4))
+                self.test_buf = torch.nn.Buffer(torch.randn(3, 4))
                 self.register_parameter(
                     "test_param", torch.nn.Parameter(torch.randn(3, 4))
                 )
@@ -2368,7 +2368,7 @@ class AOTInductorTestsTemplate:
                 self.register_parameter(
                     "test_param", torch.nn.Parameter(torch.randn(3, 4))
                 )
-                self.register_buffer("test_buf", torch.randn(3, 4))
+                self.test_buf = torch.nn.Buffer(torch.randn(3, 4))
 
             def forward(self, x):
                 return (self.foo_bar(x) + self.test_param) * self.test_buf
@@ -2405,7 +2405,7 @@ class AOTInductorTestsTemplate:
         class NestedChild(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.register_buffer("nestedchild3buffer", torch.ones(2, 3) * 3)
+                self.nestedchild3buffer = torch.nn.Buffer(torch.ones(2, 3) * 3)
 
             def forward(self, x):
                 return x / self.nestedchild3buffer
@@ -2425,7 +2425,7 @@ class AOTInductorTestsTemplate:
         class Child2(torch.nn.Module):
             def __init__(self):
                 super().__init__()
-                self.register_buffer("child2buffer", torch.ones(2, 3) * 2)
+                self.child2buffer = torch.nn.Buffer(torch.ones(2, 3) * 2)
 
             def forward(self, x):
                 return x - self.child2buffer
