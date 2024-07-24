@@ -49,6 +49,9 @@ struct TORCH_API MPSHooksInterface : AcceleratorHooksInterface {
   virtual void* getDispatchQueue() const {
     FAIL_MPSHOOKS_FUNC(__func__);
   }
+  virtual Device getDeviceFromPtr(void* ptr) const {
+    FAIL_MPSHOOKS_FUNC(__func__);
+  }
   virtual void emptyCache() const {
     FAIL_MPSHOOKS_FUNC(__func__);
   }
