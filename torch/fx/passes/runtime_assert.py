@@ -120,19 +120,6 @@ def insert_deferred_runtime_asserts(
         else:
             placeholders.add(node)
 
-    def _contains_sympy_function(expr):
-        """
-        Checks if sympy expression is or contains any args that are sympy.Functions
-        TODO(pianpwk): remove this eventually
-        """
-        if not isinstance(expr, sympy.Expr):
-            return False
-        if isinstance(expr, sympy.Function):
-            return True
-        if hasattr(expr, "args"):
-            return any(_contains_sympy_function(arg) for arg in expr.args)
-        return False
-
     def _is_intermediate_tensor_sym_call(node: fx.Node) -> bool:
         """
         If a size/stride/storage offset call on an intermediate tensor,
@@ -141,13 +128,6 @@ def insert_deferred_runtime_asserts(
         return (
             (val := _get_sym_val(node)) is not None
             and not isinstance(val, sympy.Number)
-            and not _contains_sympy_function(val)
-            # this holds back from reifying anything in torch.utils._sympy.functions.py from input shapes.
-            # TODO: figure out missing parts, too many failures on TruncToInt, CeilToInt, etc.
-            # see for example:
-            # test/dynamo/test_unspec.py test_unspec_float_precision
-            # test/dynamo/test_repros.py test_do_paste_mask
-            # test/nn/test_packed_sequence.py test_pack_padded_sequence (PYTORCH_TEST_WITH_DYNAMO=1)
             and any(
                 isinstance(arg, fx.Node)
                 and isinstance(_get_example_value(arg), (torch.Tensor, torch.Size))
@@ -174,12 +154,21 @@ def insert_deferred_runtime_asserts(
         if isinstance(expr, (Integer, Number, Symbol, BooleanAtom)):
             return sympy_interp(PythonReferenceAnalysis, expr_to_proxy, expr)
 
-        # hash cons on arguments, run expr handler
-        expr_to_proxy[expr] = _run_sympy_handler(
-            PythonReferenceAnalysis,
-            [_sympy_interp(expr_to_proxy, arg) for arg in expr.args],
-            expr,
-        )
+        # hash cons on arguments
+        fx_args = [_sympy_interp(expr_to_proxy, arg) for arg in expr.args]
+
+        # sympy function
+        if isinstance(expr, sympy.Function):
+            expr_to_proxy[expr] = fx.Proxy(
+                graph.call_function(
+                    expr.func,
+                    tuple((proxy.node if isinstance(proxy, fx.Proxy) else proxy) for proxy in fx_args),
+                ),
+            )
+        else:  # run expr handler
+            expr_to_proxy[expr] = _run_sympy_handler(
+                PythonReferenceAnalysis, fx_args, expr
+            )
         return expr_to_proxy[expr]
 
     def _is_bound_expr_for_symbol(expr: "sympy.Expr") -> bool:
