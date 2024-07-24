@@ -235,6 +235,9 @@ class TestSelectAlgorithm(BaseTestSelectAlgorithm):
         with verify(dtype) as (atol, rtol):
             self.common(mod, (v,), atol=atol, rtol=rtol)
         self.assertEqual(counters["inductor"]["select_algorithm_autotune"], 1)
+        cpp_epilogue_fusion_counter = counters["inductor"][
+            "cpp_epilogue_fusion_counter"
+        ]
         if (
             (
                 dtype == torch.bfloat16
@@ -254,9 +257,9 @@ class TestSelectAlgorithm(BaseTestSelectAlgorithm):
             #    div fusion which is not supported for oneDNN linear.
             # 2. For float16, since oneDNN linear is not applied, linear w/o bias
             #    plus epilogue add is treated as linear w/ bias.
-            self.assertEqual(counters["inductor"]["cpp_epilogue_fusion_counter"], 0)
+            self.assertEqual(cpp_epilogue_fusion_counter, 0)
         else:
-            self.assertEqual(counters["inductor"]["cpp_epilogue_fusion_counter"], 1)
+            self.assertEqual(cpp_epilogue_fusion_counter, 1)
 
     @inductor_config.patch({"freezing": True})
     @patches
