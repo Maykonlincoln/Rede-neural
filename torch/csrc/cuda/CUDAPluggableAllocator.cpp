@@ -63,7 +63,8 @@ void CUDAPluggableAllocator::set_init_fn(std::function<void(int)> init_fn) {
   init_fn_ = std::move(init_fn);
 }
 
-void CUDAPluggableAllocator::set_reset_fn(std::function<void()> reset_fn) {
+void CUDAPluggableAllocator::set_reset_fn(
+    std::function<void(c10::DeviceIndex, c10::cuda::MempoolId_t)> reset_fn) {
   reset_fn_ = std::move(reset_fn);
 }
 
@@ -179,9 +180,11 @@ void CUDAPluggableAllocator::setMemoryFraction(
   }
 }
 
-void CUDAPluggableAllocator::emptyCache() {
+void CUDAPluggableAllocator::emptyCache(
+    c10::DeviceIndex device,
+    c10::cuda::MempoolId_t mempool_id) {
   if (reset_fn_) {
-    return reset_fn_();
+    return reset_fn_(device, mempool_id);
   }
 }
 
@@ -232,8 +235,9 @@ void CUDAPluggableAllocator::resetPeakStats(c10::DeviceIndex device) {
       "If you need it, please file an issue describing your use case.");
 }
 
-c10::cuda::CUDACachingAllocator::SnapshotInfo CUDAPluggableAllocator::
-    snapshot() {
+c10::cuda::CUDACachingAllocator::SnapshotInfo CUDAPluggableAllocator::snapshot(
+    c10::DeviceIndex device,
+    c10::cuda::MempoolId_t mempool_id) {
   TORCH_CHECK(
       false,
       "CUDAPluggableAllocator does not yet support snapshot. "
@@ -279,6 +283,12 @@ void CUDAPluggableAllocator::releasePool(
   if (relase_pool_fn_) {
     relase_pool_fn_(device, mempool_id);
   }
+}
+
+int CUDAPluggableAllocator::getPoolUseCount(
+    c10::DeviceIndex device,
+    c10::cuda::MempoolId_t mempool_id) {
+  return 0;
 }
 
 void CUDAPluggableAllocator::recordHistory(
@@ -380,6 +390,7 @@ createCustomAllocator(
   std::shared_ptr<CUDAPluggableAllocator> allocator(
       new CUDAPluggableAllocator(std::move(alloc_fn), std::move(free_fn)));
   allocator->init(device_count);
+  current_custom_allocator = allocator;
   return allocator;
 }
 
