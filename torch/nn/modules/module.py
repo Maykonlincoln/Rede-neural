@@ -9,6 +9,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     Iterator,
     List,
     Mapping,
@@ -2484,8 +2485,12 @@ class Module:
         return _IncompatibleKeys(missing_keys, unexpected_keys)
 
     def _named_members(
-        self, get_members_fn, prefix="", recurse=True, remove_duplicate: bool = True
-    ):
+        self,
+        get_members_fn: Callable[[Self], Iterable[Tuple[str, Any]]],
+        prefix="",
+        recurse: bool = True,
+        remove_duplicate: bool = True,
+    ) -> Iterator[Tuple[str, Any]]:
         r"""Help yield various names + members of modules."""
         memo = set()
         modules = (
@@ -2560,13 +2565,16 @@ class Module:
         )
         yield from gen
 
-    def buffers(self, recurse: bool = True) -> Iterator[Tensor]:
+    def buffers(
+        self, recurse: bool = True, *, persistent: bool = False
+    ) -> Iterator[Tensor]:
         r"""Return an iterator over module buffers.
 
         Args:
-            recurse (bool): if True, then yields buffers of this module
+            recurse (bool, optional): if True, then yields buffers of this module
                 and all submodules. Otherwise, yields only buffers that
                 are direct members of this module.
+            persistent (bool, optional): if True, then yields persistent buffers only. Defaults to False.
 
         Yields:
             torch.Tensor: module buffer
@@ -2580,11 +2588,16 @@ class Module:
             <class 'torch.Tensor'> (20L, 1L, 5L, 5L)
 
         """
-        for _, buf in self.named_buffers(recurse=recurse):
+        for _, buf in self.named_buffers(recurse=recurse, persistent=persistent):
             yield buf
 
     def named_buffers(
-        self, prefix: str = "", recurse: bool = True, remove_duplicate: bool = True
+        self,
+        prefix: str = "",
+        recurse: bool = True,
+        remove_duplicate: bool = True,
+        *,
+        persistent: bool = False,
     ) -> Iterator[Tuple[str, Tensor]]:
         r"""Return an iterator over module buffers, yielding both the name of the buffer as well as the buffer itself.
 
@@ -2594,6 +2607,7 @@ class Module:
                 and all submodules. Otherwise, yields only buffers that
                 are direct members of this module. Defaults to True.
             remove_duplicate (bool, optional): whether to remove the duplicated buffers in the result. Defaults to True.
+            persistent (bool, optional): if True, then yields persistent buffers only. Defaults to False.
 
         Yields:
             (str, torch.Tensor): Tuple containing the name and buffer
@@ -2606,8 +2620,17 @@ class Module:
             >>>         print(buf.size())
 
         """
+
+        def _get_members(module):
+            if persistent:
+                for k, v in module._buffers.items():
+                    if k not in module._non_persistent_buffers_set:
+                        yield k, v
+            else:
+                yield from module._buffers.items()
+
         gen = self._named_members(
-            lambda module: module._buffers.items(),
+            _get_members,
             prefix=prefix,
             recurse=recurse,
             remove_duplicate=remove_duplicate,
