@@ -391,7 +391,14 @@ test_inductor_cpp_wrapper_abi_compatible() {
 # .github/workflows/inductor-perf-test-nightly.yml
 DYNAMO_BENCHMARK_FLAGS=()
 
-if [[ "${TEST_CONFIG}" == *dynamo_eager* ]]; then
+test_laith() {
+  echo "just doing echo for now"
+}
+
+if [[ "${TEST_CONFIG}" == *test_laith* ]]; then
+  test_laith
+  exit 0
+elif [[ "${TEST_CONFIG}" == *dynamo_eager* ]]; then
   DYNAMO_BENCHMARK_FLAGS+=(--backend eager)
 elif [[ "${TEST_CONFIG}" == *aot_eager* ]]; then
   DYNAMO_BENCHMARK_FLAGS+=(--backend aot_eager)
