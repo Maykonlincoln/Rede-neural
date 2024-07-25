@@ -11,7 +11,7 @@ from torch._inductor.fx_passes.pad_mm import (
     should_pad_common,
 )
 from torch._inductor.test_case import run_tests, TestCase
-from torch._inductor.utils import fresh_inductor_cache, run_and_get_code
+from torch._inductor.utils import fresh_inductor_cache, is_big_gpu, run_and_get_code
 from torch.testing import FileCheck
 from torch.testing._internal.inductor_utils import HAS_CUDA
 
@@ -19,6 +19,9 @@ from torch.testing._internal.inductor_utils import HAS_CUDA
 class PadMMTest(TestCase):
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_pad_mm_dyn_m(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         M = 40
         K1 = 581
         K2 = 49
@@ -50,6 +53,9 @@ class PadMMTest(TestCase):
 
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_cat_pad_mm_dyn_m(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         M1 = 128
         M2 = 40
         K1 = 129
@@ -85,6 +91,9 @@ class PadMMTest(TestCase):
 
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_pad_mm_dyn_n(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         M = 20
         K = 81
         N = 30
@@ -112,6 +121,9 @@ class PadMMTest(TestCase):
 
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_pad_mm_dyn_k(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         M = 21
         K = 80
         N = 30
@@ -179,6 +191,9 @@ class PadMMTest(TestCase):
 
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_pad_bmm_dyn_b(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         B = 10
         M = 128
         K = 33
@@ -208,6 +223,9 @@ class PadMMTest(TestCase):
 
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_pad_bmm_dyn_k(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         B = 10
         M = 128
         K = 40
@@ -237,6 +255,9 @@ class PadMMTest(TestCase):
 
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_pad_bmm_dyn_bm(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         B = 10
         M = 128
         K = 40
@@ -267,6 +288,9 @@ class PadMMTest(TestCase):
 
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_pad_addmm_dyn_m(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         M = 128
         K = 33
         N = 40
@@ -296,6 +320,9 @@ class PadMMTest(TestCase):
 
     @inductor_config.patch(max_autotune=True, max_autotune_gemm_backends="TRITON")
     def test_pad_addmm_dyn_mn(self):
+        if not is_big_gpu(0):
+            self.skipTest("Need a big GPU to run max_autotune=True")
+
         M = 128
         K = 33
         N = 40
