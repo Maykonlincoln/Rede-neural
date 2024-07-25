@@ -22,6 +22,11 @@ from torch._decomp.decompositions import (
 )
 from torch._decomp.decompositions_for_rng import extra_random_decomps
 from torch._dynamo.utils import counters
+from torch._higher_order_ops.associative_scan import (
+    associative_scan_op,
+    generic_associative_scan,
+    wrap_combine_fn_flat
+)
 from torch._higher_order_ops.out_dtype import out_dtype
 from torch._inductor.utils import pad_listlike
 from torch._prims_common import (
@@ -34,6 +39,7 @@ from torch.fx.experimental.symbolic_shapes import definitely_true, guard_size_ob
 from . import config, inductor_prims
 from .utils import (
     is_gpu,
+    is_pointwise_subgraph,
     needs_fallback_due_to_atomic_add_limitations,
     use_scatter_fallback,
 )
@@ -795,3 +801,26 @@ def max_pool2d_with_indices(
         padding,
     )
     return vals, indices
+
+
+@register_decomposition(associative_scan_op)
+def associative_scan_op_decomp(combine_fn, leaves, dim, lifted_args):
+    
+    # def wrap_combine_fn(fct):
+    #     return functools.partial(
+    #         wrap_combine_fn_flat, combine_fn=combine_fn, spec=spec, num_leaves=len(leaves)
+    #     )
+    
+    # This will handle the fallback to eager in case any
+    # of the leaves is on a non-CUDA device
+    if not all([l.device.type == "cuda" for l in leaves]):
+        # Decompose into generic_associative_scan
+        return generic_associative_scan(combine_fn, leaves, dim, lifted_args)
+    
+    # This will handle the fallback to eager in case there
+    # are non-pointwise operations involved in combine_fn
+    if is_pointwise_subgraph(combine_fn.graph):
+        return NotImplemented  # Don't decompose, use the lowering of associative_scan
+
+    # Decompose into generic_associative_scan
+    return generic_associative_scan(combine_fn, leaves, dim, lifted_args)
