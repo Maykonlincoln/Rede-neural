@@ -1095,7 +1095,6 @@ void initJitScriptBindings(PyObject* module) {
           py::arg("_extra_files") = ExtraFilesMap(),
           py::arg("_save_mobile_debug_info") = false,
           py::arg("_use_flatbuffer") = false)
-      .def("_set_optimized", &Module::set_optimized)
       .def(
           "dump",
           &Module::dump,
@@ -1399,7 +1398,6 @@ void initJitScriptBindings(PyObject* module) {
             }
             return functions;
           })
-      .def("set_optimized", &CompilationUnit::set_optimized)
       .def(
           "define",
           pyCompilationUnitDefine,
