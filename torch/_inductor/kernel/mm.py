@@ -341,6 +341,15 @@ def tuned_addmm(inp, mat1, mat2, *, alpha=1, beta=1, layout=None):
                 beta=beta,
             )
 
+    if use_ck_template(layout, m, n, k):
+        CKGemmTemplate.add_ck_gemm_choices(
+            choices,
+            layout,
+            [mat1, mat2, inp_expanded],
+            alpha=alpha,
+            beta=beta,
+        )
+
     if use_cpp_packed_gemm_template(layout, mat1, mat2):
         CppPackedGemmTemplate.add_choices(
             choices,
