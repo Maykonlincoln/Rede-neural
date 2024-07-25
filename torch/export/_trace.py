@@ -1846,7 +1846,7 @@ def _export_for_training(
         ),
         example_inputs=(args, kwargs),
         constants=export_artifact.aten.constants,
-        verifier=TrainingIRVerifier,
+        verifiers=[TrainingIRVerifier],
     )
 
     return exported_program
@@ -2010,6 +2010,9 @@ def _export(
         _verify_placeholder_names(gm, export_graph_signature)
 
     assert _EXPORT_MODULE_HIERARCHY is not None
+
+    from torch._export.verifier import Verifier
+
     exported_program = ExportedProgram(
         root=gm,
         graph=gm.graph,
@@ -2024,6 +2027,7 @@ def _export(
         ),
         example_inputs=(args, kwargs),
         constants=export_artifact.aten.constants,
+        verifiers=[Verifier],
     )
 
     return exported_program
