@@ -266,15 +266,24 @@ class PrefixFileStoreTest(TestCase, StoreTestBase):
 
 class TCPStoreTest(TestCase, StoreTestBase):
     _use_libuv = False
+    _connect_async = False
 
     def _create_store(self):
-        store = create_tcp_store(use_libuv=self._use_libuv)
+        store = create_tcp_store(
+            use_libuv=self._use_libuv,
+            connect_async=self._connect_async,
+            wait_for_workers=not self._connect_async,
+        )
         store.set_timeout(timedelta(seconds=300))
         return store
 
     def _create_store_with_ws(self, addr, world_size):
         return create_tcp_store(
-            addr, world_size, wait_for_workers=False, use_libuv=self._use_libuv
+            addr,
+            world_size,
+            wait_for_workers=False,
+            use_libuv=self._use_libuv,
+            connect_async=self._connect_async,
         )
 
     def test_address_already_in_use(self):
@@ -374,25 +383,31 @@ class TCPStoreTest(TestCase, StoreTestBase):
         return 6
 
     def _test_numkeys_delkeys(self, fs):
-        # We start off with one init key in the store to coordinate workers
-        self.assertEqual(fs.num_keys(), 1)
+        # This may be 0 or 1 depending on wait_for_workers setting.
+        start_keys = fs.num_keys()
+
+        def num_keys() -> int:
+            return fs.num_keys() - start_keys
+
+        self.assertEqual(num_keys(), 0)
+
         fs.add("key", 1)
         fs.add("key", 2)
         fs.add("key", 3)
         fs.set("key0", "value0")
         fs.add("key3", 1)
         fs.set("key1", "value1")
-        self.assertEqual(fs.num_keys(), 5)
+        self.assertEqual(num_keys(), 4)
         fs.delete_key("key")
-        self.assertEqual(fs.num_keys(), 4)
+        self.assertEqual(num_keys(), 3)
         fs.set_timeout(timedelta(seconds=2))
         with self.assertRaises(RuntimeError):
             fs.get("key")
         fs.delete_key("key0")
         fs.delete_key("key3")
-        self.assertEqual(fs.num_keys(), 2)
+        self.assertEqual(num_keys(), 1)
         fs.set("key4", "value2")
-        self.assertEqual(fs.num_keys(), 3)
+        self.assertEqual(num_keys(), 2)
         self.assertEqual(b"value1", fs.get("key1"))
         self.assertEqual(b"value2", fs.get("key4"))
 
@@ -406,6 +421,8 @@ class TCPStoreTest(TestCase, StoreTestBase):
             world_size=world_size,
             timeout=timedelta(seconds=10),
             use_libuv=self._use_libuv,
+            connect_async=self._connect_async,
+            wait_for_workers=not self._connect_async,
         )
         self.assertEqual(b"value", client_store.get("key"))
         client_store.set(f"new_key{index}", f"new_value{index}")
@@ -486,18 +503,31 @@ class TCPStoreTest(TestCase, StoreTestBase):
         )
 
 
+class TCPStoreConnectAsyncTest(TCPStoreTest):
+    _connect_async = True
+
+    # this is used for key setting tests
+    @property
+    def num_keys_total(self):
+        return 5
+
+    def test_connect_async(self):
+        store = dist.TCPStore(
+            "nonexistant",
+            1234,
+            1,
+            is_master=False,
+            wait_for_workers=False,
+            connect_async=True,
+            timeout=timedelta(milliseconds=10),
+        )
+
+        with self.assertRaisesRegex(DistNetworkError, "nonexistant"):
+            store.set("a", "b")
+
+
 class LibUvTCPStoreTest(TCPStoreTest):
     _use_libuv = True
-
-    def _create_store(self):
-        store = create_tcp_store(use_libuv=True)
-        store.set_timeout(timedelta(seconds=300))
-        return store
-
-    def _create_store_with_ws(self, addr, world_size):
-        return create_tcp_store(
-            addr, world_size, wait_for_workers=False, use_libuv=True
-        )
 
     def test_take_over_listen_socket(self):
         """

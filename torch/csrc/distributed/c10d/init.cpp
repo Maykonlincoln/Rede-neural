@@ -1505,7 +1505,8 @@ Example::
                       bool waitWorkers,
                       bool multiTenant,
                       std::optional<int> masterListenFd,
-                      bool useLibUV) {
+                      bool useLibUV,
+                      bool connectAsync) {
             std::optional<std::size_t> numWorkers = std::nullopt;
             if (worldSize.has_value() && worldSize.value() > -1) {
               numWorkers = static_cast<std::size_t>(worldSize.value());
@@ -1519,7 +1520,8 @@ Example::
                 timeout,
                 multiTenant,
                 masterListenFd,
-                useLibUV};
+                useLibUV,
+                connectAsync};
 
             return c10::make_intrusive<::c10d::TCPStore>(host, opts);
           }),
@@ -1535,6 +1537,7 @@ Example::
           py::arg("multi_tenant") = false,
           py::arg("master_listen_fd") = py::none(),
           py::arg("use_libuv") = true,
+          py::arg("connect_async") = false,
           py::call_guard<py::gil_scoped_release>())
       .def(
           "collect_client_counters",
